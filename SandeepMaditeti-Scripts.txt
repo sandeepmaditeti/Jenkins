@@ -1,0 +1,248 @@
+1)checks and delets the server log files in sit - CronJobs setup for UAT, Server esuv3801
+
+[jboss@esu3v081 ~]$ crontab -l
+*/30 * * * * find /opt/jboss/ATR-Admin-Search/app/standalone_node_ATR-Admin-Search1/log -type f -name 'server*' -mmin +420 -delete
+*/30 * * * * find /opt/jboss/ATR-ATRUI/app/standalone_node_ATR-ATRUI1/log -type f -name 'server*' -mmin +420 -delete
+*/30 * * * * find /opt/jboss/ATTR-PRT-PATDS-Service/app/standalone_node_ATTR-PRT-PATDS-Service1/log -type f -name 'server*' -mmin +420 -delete
+*/30 * * * * find /opt/jboss/EAP-Attribute-Service/app/standalone_node_EAP-Attribute-Service1/log -type f -name 'server*' -mmin +420 -delete
+*/30 * * * * find /opt/jboss/PRT-PAADS/app/standalone_node_PRT-PAADS1/log -type f -name 'server*' -mmin +420 -delete
+*/30 * * * * find /opt/jboss/PRT-Product-Data-Service/app/standalone_node_PRT-Product-Data-Service1/log -type f -name 'server*' -mmin +420 -delete
+*/30 * * * * find /opt/jboss/PRT-Product-Misc-Services/app/standalone_node_PRT-Product-Misc-Services1/log -type f -name 'server*' -mmin +420 -delete
+*/30 * * * * find /opt/jboss/PRT-Product-SOLR-Indexer/app/standalone_node_PRT-Product-SOLR-Indexer1/log -type f -name 'server*' -mmin +420 -delete
+*/30 * * * * find /opt/jboss/PRT-Product-SOLR-Searcher/app/standalone_node_PRT-Product-SOLR-Searcher1/log -type f -name 'server*' -mmin +420 -delete
+05 12 * * 3 /opt/jboss/tools/ui-metrics-report/generate_metrics_report.sh
+*/15 * * * * /opt/jboss/tools/serviceCheck/testAllServices
+
+2) Shell script to test all servers in UAT 
+#!/bin/sh
+
+
+
+{
+curr_url="$1";
+service_name="$2"
+expected_status="$3"
+
+if box_name="esu3v081"
+
+actual_status=`curl -i --silent -X GET $curr_url 2>/dev/null | head -n 1 | awk -F"
+ " '{print $2}'`
+
+
+if [ $actual_status != $expected_status ] ; then 
+
+echo "$service_name is not in good status in $box_name" >> /opt/jboss/tools/serviceCheck/logs/serviceCheck.log
+ 
+fi;
+
+}
+
+
+echo "started"
+
+>/opt/jboss/tools/serviceCheck/logs/serviceCheck.log
+
+verifyService
+ "http://esu3v081.federated.fds:46180/ocms-prt-paads-web/v1/about" "PAADS" "200"
+verifyService
+ "http://esu3v081.federated.fds:39180/ocms-attribute-service/v1/about" "ATR Service" "200"
+verifyService
+ "http://esu3v081.federated.fds:42180/atr-search-indexer-6.2.0-20160107.185215-3/v1/doc" "ATR Search Indexer" "200"
+verifyService
+ "http://esu3v081.federated.fds:41180/prt-rules-service/home.html" "PRT Rules Service" "200"
+verifyService
+ "http://esu3v081.federated.fds:44180/ocms-eap-product-orch/v1/about" "Product Orch" "200"
+verifyService
+ "http://esu3v081.federated.fds:40180/ocms-product-service/v1/about" "Product Data Service" "200"
+verifyService
+ "http://esu3v081.federated.fds:38180/attributes/systemProperties.html" "ATR UI" "200"
+verifyService
+ "http://esu3v081.federated.fds:45180/product-type-service/v1/about" "Product Type Service" "200"
+verifyService
+ "http://esu3v081.federated.fds:43180/solr" "Product SOLR" "302"
+verifyService
+ "http://esu3v081.federated.fds:42180/solr" "Product SOLR" "302"
+
+
+if [ -s /opt/jboss/tools/serviceCheck/logs/serviceCheck.log ] ;
+ then
+
+mail -s "SIT Service Status - Health Check" shanmuga.sundaram.ramakrishnan@macys.com < /opt/jboss/tools/serviceCheck/logs/serviceCheck.log
+mail -s
+ "SIT Service Status - Health Check" sandeep.maditeti@macys.com < /opt/jboss/tools/serviceCheck/logs/serviceCheck.log
+mail -s
+ "SIT Service Status - Health Check" heman.choksi@macys.com < /opt/jboss/tools/serviceCheck/logs/serviceCheck.log
+mail -s
+
+3)send notification mail if some service goes down for UAT Environment
+
+#!/bin/sh
+
+verifyService () {
+curr_url="$1";
+service_name="$2"
+expected_status="$3"
+box_name="esu3v081"
+
+actual_status=`curl -i --silent -X GET $curr_url 2>/dev/null | head -n 1 | awk -F" " '{print $2}'`
+if [ $actual_status != $expected_status ] ; then
+echo "$service_name is not in good status in $box_name" >> /opt/jboss/tools/serviceCheck/logs/serviceCheck.log
+fi;
+}
+
+echo "started" > /opt/jboss/tools/serviceCheck/logs/serviceCheck.log
+verifyService "http://esu3v081.federated.fds:46180/ocms-prt-paads-web/v1/about" "PAADS" "200"
+verifyService "http://esu3v081.federated.fds:39180/ocms-attribute-service/v1/about" "ATR Service" "200"
+verifyService "http://esu3v081.federated.fds:42180/atr-search-indexer-6.2.0-20160107.185215-3/v1/doc" "ATR Search Indexer" "200"
+verifyService "http://esu3v081.federated.fds:41180/prt-rules-service/home.html" "PRT Rules Service" "200"
+verifyService "http://esu3v081.federated.fds:44180/ocms-eap-product-orch/v1/about" "Product Orch" "200"
+verifyService "http://esu3v081.federated.fds:40180/ocms-product-service/v1/about" "Product Data Service" "200"
+verifyService "http://esu3v081.federated.fds:38180/attributes/systemProperties.html" "ATR UI" "200"
+verifyService "http://esu3v081.federated.fds:45180/product-type-service/v1/about" "Product Type Service" "200"
+verifyService "http://esu3v081.federated.fds:43180/solr" "Product SOLR" "302"
+verifyService "http://esu3v081.federated.fds:42180/solr" "Product SOLR" "302"
+if [ -s /opt/jboss/tools/serviceCheck/logs/serviceCheck.log ] ; then
+mail -s "SIT Service Status - Health Check" sandeep.maditeti@macys.com < /opt/jboss/tools/serviceCheck/logs/serviceCheck.log
+mail -s "SIT Service Status - Health Check" heman.choksi@macys.com < /opt/jboss/tools/serviceCheck/logs/serviceCheck.log
+mail -s "SIT Service Status - Health Check" madhu.sehgal@macys.com < /opt/jboss/tools/serviceCheck/logs/serviceCheck.log
+else
+echo " No error found"
+fi;
+
+4) Batch script to run build script from FinaLBuilder
+
+git --version
+git lfs clone https://devtopia.esri.com/ArcGISPro/PS-Products.git %WORKSPACE%\Engine
+attrib -r "%WORKSPACE%\*.*" /s /d
+rmdir /s /q %WORKSPACE%\LocationReferencing
+mkdir %WORKSPACE%\LocationReferencing
+robocopy  %WORKSPACE%\Engine\LocationReferencing %WORKSPACE%\LocationReferencing /E 
+echo %LR_BUILDNO%
+echo %langBuild%
+echo %JOB_NAME%
+echo %PATH%
+rem copy c:\tempdl\lr\Build.fbx8 %WORKSPACE%\Build\FinalBuilder /y
+if %PROCESSOR_ARCHITECTURE% == x86 (
+"%programfiles%\FinalBuilder 8\FBCMD.exe" -v:"BUILD_NUMBER=%LR_BUILDNO%;Workspace=%WORKSPACE%;cfg_BuildConfig=%config%;DIR_Blaster_help=%CoreEngHelpFilesPubLocation%" "%WORKSPACE%\Build\FinalBuilder\Build.fbx8"
+) else (
+"%programfiles(x86)%\FinalBuilder 8\FBCMD.exe" -v:"BUILD_NUMBER=%LR_BUILDNO%;Workspace=%WORKSPACE%;cfg_BuildConfig=%config%;DIR_Blaster_help=%CoreEngHelpFilesPubLocation%" "%WORKSPACE%\Build\FinalBuilder\Build.fbx8"
+)
+
+5) Install script for installing setup in standalone server
+
+attrib -r "%WORKSPACE%\*" /s /d
+echo %LR_BUILDNO%
+echo %config%
+if %PROCESSOR_ARCHITECTURE% == x86 (
+    "%programfiles%\FinalBuilder 8\FBCMD.exe" -v:"BUILD_NUMBER=%LR_BUILDNO%;Workspace=%WORKSPACE%;cfg_BuildConfig=%config%;BUILD_URL=%BUILD_URL%;JOB_NAME=%JOB_NAME%;DIR_SETUPEXE_DT=%DIR_SETUPEXE_DT%;DIR_SETUPEXE_S=%DIR_SETUPEXE_S%" "%WORKSPACE%\FinalBuilder\Install.fbx8"
+) else (
+    "%programfiles(x86)%\FinalBuilder 8\FBCMD.exe" -v:"BUILD_NUMBER=%LR_BUILDNO%;Workspace=%WORKSPACE%;cfg_BuildConfig=%config%;BUILD_URL=%BUILD_URL%;JOB_NAME=%JOB_NAME%;DIR_SETUPEXE_DT=%DIR_SETUPEXE_DT%;DIR_SETUPEXE_S=%DIR_SETUPEXE_S%" "%WORKSPACE%\FinalBuilder\Install.fbx8"
+)
+
+6) Chef Receipe for installing IIS Server on test windows machine
+1.chef generate cookbook IIS
+2.IIS.rb - to write receipe
+powershell_script 'Install IIS' do
+  code 'Add-WindowsFeature Web-Server'
+  guard_interpreter :powershell_script
+  not_if "(Get-WindowsFeature -Name Web-Server).Installed"
+end
+ 
+powershell_script 'Install IIS Management Console' do
+  code 'Add-WindowsFeature Web-Mgmt-Console'
+  guard_interpreter :powershell_script
+  not_if "$MgmtConsoleState = (Get-WindowsFeature Web-Mgmt-Console).InstallState 
+		 If ($MgmtConsoleState -eq 'Available')
+		 {
+		  	 echo $false
+		 }
+		 Elseif ($MgmtConsoleState -eq 'Installed')
+		 {
+			 echo $true
+		 }"
+end
+service 'w3svc' do
+  action [:start, :enable]
+end
+template 'c:\inetpub\wwwroot\Default.htm' do
+  source 'index.html.erb'
+end
+3.now config index.html.erb file
+<html>
+  <body>
+    <h1>IIS on Windows Server 2012 R2 - Managed by Chef!</h1>
+	<br>
+	This Server is currently configured by Chef!
+	<br>
+  </body>
+</html>
+mow just run chef-client --local-mode --runlist IIS
+ 
+
+7) Haproxy installation on all test machines
+
+package "haproxy" do 
+  retries 3 
+  retry_delay 5 
+  action :install 
+end 
+if platform?('debian','ubuntu') 
+  template '/etc/default/haproxy' do 
+    source 'haproxy-default.erb' 
+    owner 'root' 
+    group 'root' 
+    mode 0644 
+   end 
+end 
+include_recipe 'haproxy::service' 
+template '/etc/haproxy/haproxy.cfg' do 
+  source 'haproxy.cfg.erb' 
+  owner 'root' 
+  group 'root' 
+  mode 0644 
+  notifies :restart, "service[haproxy]" 
+end 
+service 'haproxy' do 
+  action [:enable, :start] 
+end 
+
+8)Docker file to run jenkins image
+
+FROM Jenkins
+RUN apt-get update
+RUN apt-get install -y vim; apt-get install -y less
+ADD . /ProvisioningEngine/Jenkins
+WORKDIR /ProvisioningEngine/Jenkins/ProfessionalServices
+RUN bundle install; bundle exec rake db:migrate Jenkins_Test=testing
+EXPOSE 80
+CMD ["jenkins", "server", "-p", "80"]
+#To BUILD and Run:
+docker build --tag=provisioningengine_manual:latest 
+curl localhost
+docker run -it -p 80:80 provisioningengine_manual
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
